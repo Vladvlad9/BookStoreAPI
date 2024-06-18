@@ -1,6 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, Text, Float, ForeignKey, DateTime, Boolean, SmallInteger
+from sqlalchemy import Column, Integer, String, Text, Float, ForeignKey, DateTime, Boolean, SmallInteger, \
+    CheckConstraint
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 
@@ -31,6 +32,11 @@ class Book(Base):
     isbn = Column(String(13), unique=True)
     reviews = relationship("Review", back_populates="book")
     order_details = relationship("OrderDetail", back_populates="book")
+
+    __table_args__ = (
+        CheckConstraint(price >= 0, name='check_price_positive'),
+        CheckConstraint(stock >= 0, name='check_stock_non_negative'),
+    )
 
 
 class Author(Base):
@@ -73,22 +79,33 @@ class User(Base):
     orders = relationship("Order", back_populates="user")
     reviews = relationship("Review", back_populates="user")
     addresses = relationship("Address", back_populates="user")
+    roles = relationship("Role", secondary='user_roles')
+
+
+class OrderStatus(Base):
+    __tablename__ = 'order_statuses'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    status = Column(String(50), nullable=False, unique=True)
+    description = Column(Text)
+    orders = relationship("Order", back_populates="order_status")
 
 
 class Order(Base):
     __tablename__ = 'orders'
 
-    id = Column(SmallInteger, primary_key=True, autoincrement=True)
-    user_id = Column(SmallInteger, ForeignKey('users.id'))
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
     total_amount = Column(Float, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    status = Column(String(50), nullable=False)
+    status_id = Column(Integer, ForeignKey('order_statuses.id'))
     user = relationship("User", back_populates="orders")
     order_details = relationship("OrderDetail", back_populates="order")
-    shipping_address_id = Column(SmallInteger, ForeignKey('addresses.id'))
-    billing_address_id = Column(SmallInteger, ForeignKey('addresses.id'))
+    shipping_address_id = Column(Integer, ForeignKey('addresses.id'))
+    billing_address_id = Column(Integer, ForeignKey('addresses.id'))
     shipping_address = relationship("Address", foreign_keys=[shipping_address_id])
     billing_address = relationship("Address", foreign_keys=[billing_address_id])
+    order_status = relationship("OrderStatus", back_populates="orders")
 
 
 class OrderDetail(Base):
@@ -115,6 +132,10 @@ class Review(Base):
     user = relationship("User", back_populates="reviews")
     book = relationship("Book", back_populates="reviews")
 
+    __table_args__ = (
+        CheckConstraint(rating >= 1, rating <= 5, name='check_rating_range'),
+    )
+
 
 class Address(Base):
     __tablename__ = 'addresses'
@@ -127,3 +148,39 @@ class Address(Base):
     country = Column(String(100), nullable=False)
     postal_code = Column(String(20), nullable=False)
     user = relationship("User", back_populates="addresses")
+
+
+class Discount(Base):
+    __tablename__ = 'discounts'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(50), unique=True, nullable=False)
+    description = Column(Text)
+    discount_percent = Column(Float, nullable=False)
+    valid_from = Column(DateTime, nullable=False)
+    valid_to = Column(DateTime, nullable=False)
+    active = Column(Boolean, default=True)
+    books = relationship("Book", secondary='book_discounts')
+
+    __table_args__ = (
+        CheckConstraint(discount_percent >= 0, discount_percent <= 100, name='check_discount_percent_range'),
+    )
+
+
+class BookDiscount(Base):
+    __tablename__ = 'book_discounts'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    book_id = Column(Integer, ForeignKey('books.id'), nullable=False)
+    discount_id = Column(Integer, ForeignKey('discounts.id'), nullable=False)
+
+
+class Role(Base):
+    __tablename__ = 'roles'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(50), nullable=False, unique=True)
+    description = Column(Text)
+
+    users = relationship("User", secondary='user_roles')
+
