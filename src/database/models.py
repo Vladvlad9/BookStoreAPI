@@ -1,8 +1,26 @@
 from datetime import datetime
 
 from sqlalchemy import Column, Integer, String, Text, Float, ForeignKey, DateTime, Boolean, SmallInteger, \
-    CheckConstraint
+    CheckConstraint, Enum
 from sqlalchemy.orm import DeclarativeBase, relationship
+
+from src.enum import UserRole, OrderStatus as order_status
+
+__all__ = [
+    "BookAuthor",
+    "Book",
+    "Author",
+    "Category",
+    "Publisher",
+    "User",
+    "OrderStatus",
+    "Order",
+    "OrderDetail",
+    "Review",
+    "Address",
+    "Discount",
+    "BookDiscount",
+]
 
 
 class Base(DeclarativeBase):
@@ -11,27 +29,40 @@ class Base(DeclarativeBase):
 
 class BookAuthor(Base):
     __tablename__ = 'books_authors'
+
     book_id = Column(SmallInteger, ForeignKey("books.id"))
     author_id = Column(SmallInteger, ForeignKey("authors.id"))
+
+
+class BookDiscount(Base):
+    __tablename__ = 'book_discounts'
+
+    book_id = Column(Integer, ForeignKey('books.id'), nullable=False)
+    discount_id = Column(Integer, ForeignKey('discounts.id'), nullable=False)
 
 
 class Book(Base):
     __tablename__ = 'books'
 
-    id = Column(SmallInteger, primary_key=True, autoincrement=True)
+    id = Column(SmallInteger, primary_key=True)
+
     title = Column(String(250), nullable=False)
     description = Column(Text)
     price = Column(Float, nullable=False)
-    category_id = Column(SmallInteger, ForeignKey('categories.id'))
-    publisher_id = Column(SmallInteger, ForeignKey('publishers.id'))
-    category = relationship("Category", back_populates="books")
-    publisher = relationship("Publisher", back_populates="books")
-    authors = relationship("Author", secondary=BookAuthor.__tablename__, back_populates="books")
     stock = Column(Integer, default=0)
     published_date = Column(DateTime)
     isbn = Column(String(13), unique=True)
+
+    category_id = Column(SmallInteger, ForeignKey('categories.id'))
+    publisher_id = Column(SmallInteger, ForeignKey('publishers.id'))
+
+    category = relationship("Category", back_populates="books")
+    publisher = relationship("Publisher", back_populates="books")
     reviews = relationship("Review", back_populates="book")
     order_details = relationship("OrderDetail", back_populates="book")
+
+    authors = relationship("Author", secondary=BookAuthor.__tablename__, back_populates="books")
+    discounts = relationship("Discount", secondary=BookDiscount.__tablename__, back_populates="books")
 
     __table_args__ = (
         CheckConstraint(price >= 0, name='check_price_positive'),
@@ -42,40 +73,44 @@ class Book(Base):
 class Author(Base):
     __tablename__ = 'authors'
 
-    id = Column(SmallInteger, primary_key=True, autoincrement=True)
+    id = Column(SmallInteger, primary_key=True)
     name = Column(String(100), nullable=False)
     biography = Column(Text)
     birth_date = Column(DateTime)
+
     books = relationship("Book", secondary=BookAuthor.__tablename__, back_populates="authors")
 
 
 class Category(Base):
     __tablename__ = 'categories'
 
-    id = Column(SmallInteger, primary_key=True, autoincrement=True)
+    id = Column(SmallInteger, primary_key=True)
     name = Column(String(100), nullable=False)
     description = Column(Text)
+
     books = relationship("Book", back_populates="category")
 
 
 class Publisher(Base):
     __tablename__ = 'publishers'
 
-    id = Column(SmallInteger, primary_key=True, autoincrement=True)
+    id = Column(SmallInteger, primary_key=True)
     name = Column(String(100), nullable=False)
     address = Column(Text)
+
     books = relationship("Book", back_populates="publisher")
 
 
 class User(Base):
     __tablename__ = 'users'
 
-    id = Column(SmallInteger, primary_key=True, autoincrement=True)
+    id = Column(SmallInteger, primary_key=True)
     username = Column(String(100), nullable=False, unique=True)
     email = Column(String(150), nullable=False, unique=True)
     password = Column(String(150), nullable=False)
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    role = Column(Enum(UserRole), default=UserRole.USER)
     orders = relationship("Order", back_populates="user")
     reviews = relationship("Review", back_populates="user")
     addresses = relationship("Address", back_populates="user")
@@ -85,19 +120,22 @@ class User(Base):
 class OrderStatus(Base):
     __tablename__ = 'order_statuses'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    status = Column(String(50), nullable=False, unique=True)
+    id = Column(Integer, primary_key=True)
+    status = Column(Enum(order_status), nullable=False, unique=True)
     description = Column(Text)
+
     orders = relationship("Order", back_populates="order_status")
 
 
 class Order(Base):
     __tablename__ = 'orders'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True)
+
     user_id = Column(Integer, ForeignKey('users.id'))
     total_amount = Column(Float, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
     status_id = Column(Integer, ForeignKey('order_statuses.id'))
     user = relationship("User", back_populates="orders")
     order_details = relationship("OrderDetail", back_populates="order")
@@ -111,11 +149,13 @@ class Order(Base):
 class OrderDetail(Base):
     __tablename__ = 'order_details'
 
-    id = Column(SmallInteger, primary_key=True, autoincrement=True)
+    id = Column(SmallInteger, primary_key=True)
+
     order_id = Column(SmallInteger, ForeignKey('orders.id'))
     book_id = Column(SmallInteger, ForeignKey('books.id'))
     quantity = Column(SmallInteger, nullable=False)
     unit_price = Column(Float, nullable=False)
+
     order = relationship("Order", back_populates="order_details")
     book = relationship("Book", back_populates="order_details")
 
@@ -123,12 +163,14 @@ class OrderDetail(Base):
 class Review(Base):
     __tablename__ = 'reviews'
 
-    id = Column(SmallInteger, primary_key=True, autoincrement=True)
+    id = Column(SmallInteger, primary_key=True)
+
     user_id = Column(SmallInteger, ForeignKey('users.id'))
     book_id = Column(SmallInteger, ForeignKey('books.id'))
     rating = Column(SmallInteger, nullable=False)
     comment = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+
     user = relationship("User", back_populates="reviews")
     book = relationship("Book", back_populates="reviews")
 
@@ -140,7 +182,7 @@ class Review(Base):
 class Address(Base):
     __tablename__ = 'addresses'
 
-    id = Column(SmallInteger, primary_key=True, autoincrement=True)
+    id = Column(SmallInteger, primary_key=True)
     user_id = Column(SmallInteger, ForeignKey('users.id'))
     street = Column(String(150), nullable=False)
     city = Column(String(100), nullable=False)
@@ -153,34 +195,20 @@ class Address(Base):
 class Discount(Base):
     __tablename__ = 'discounts'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True)
     code = Column(String(50), unique=True, nullable=False)
     description = Column(Text)
+
     discount_percent = Column(Float, nullable=False)
     valid_from = Column(DateTime, nullable=False)
     valid_to = Column(DateTime, nullable=False)
     active = Column(Boolean, default=True)
-    books = relationship("Book", secondary='book_discounts')
+
+    books = relationship("Book", secondary=BookDiscount.__tablename__, back_populates="discounts")
 
     __table_args__ = (
         CheckConstraint(discount_percent >= 0, discount_percent <= 100, name='check_discount_percent_range'),
     )
 
 
-class BookDiscount(Base):
-    __tablename__ = 'book_discounts'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    book_id = Column(Integer, ForeignKey('books.id'), nullable=False)
-    discount_id = Column(Integer, ForeignKey('discounts.id'), nullable=False)
-
-
-class Role(Base):
-    __tablename__ = 'roles'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(50), nullable=False, unique=True)
-    description = Column(Text)
-
-    users = relationship("User", secondary='user_roles')
 
