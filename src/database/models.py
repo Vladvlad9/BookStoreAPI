@@ -185,7 +185,7 @@ class Review(Base):
     book = relationship("Book", back_populates="reviews")
 
     __table_args__ = (
-        CheckConstraint(rating >= 1, rating <= 5, name='check_rating_range'),
+        CheckConstraint("rating BETWEEN  1 AND  3", name='check_rating_range'),
     )
 
 
@@ -219,7 +219,7 @@ class Discount(Base):
     books = relationship("Book", secondary=BookDiscount.__tablename__, back_populates="discounts")
 
     __table_args__ = (
-        CheckConstraint(discount_percent >= 0, discount_percent <= 100, name='check_discount_percent_range'),
+        CheckConstraint("discount_percent BETWEEN  1 AND  3", name='check_discount_percent_range'),
     )
 
 
