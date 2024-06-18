@@ -1,13 +1,18 @@
 from fastapi import FastAPI
+from fastapi.responses import ORJSONResponse
+from src.settings import settings
 
-app = FastAPI()
+app = FastAPI(
+    title="Book Store API",
+    description="Book Store API",
+    default_response_class=ORJSONResponse
+)
 
+if __name__ == '__main__':
+    from uvicorn import run
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
+    run(
+        app=app,
+        host=settings.HOST,
+        port=settings.PORT,
+    )
